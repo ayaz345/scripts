@@ -15,12 +15,12 @@ import portage.versions
 def split_package(p):
     # split into cat/package,ver-rev
     split = portage.versions.catpkgsplit(p.strip())
-    return (split[0] + "/" + split[1], split[2] + "-" + split[3])
+    return f"{split[0]}/{split[1]}", f"{split[2]}-{split[3]}"
 
 
 def build_pkg_map(pkgs):
     pkgs = map(split_package, pkgs)
-    package_map = dict()
+    package_map = {}
     for pkg, ver in pkgs:
         if pkg not in package_map:
             package_map[pkg] = [ver]
@@ -50,7 +50,8 @@ def get_portage_tree_packages(tree_path):
         # cat/pkg/pkg-ver.ebuild -> cat/pkg-ver
         chunks = line.split("/")
         end = chunks[2].replace(".ebuild", "")
-        return chunks[0] + "/" + end
+        return f"{chunks[0]}/{end}"
+
     return build_pkg_map(map(process_line, pkgs.splitlines()))
 
 
@@ -70,14 +71,14 @@ def get_board_packages(board):
     """ gets a list of packages used by a board. valid boards are amd64-usr, sdk, and bootstrap"""
     emerge_args = "--emptytree --pretend --verbose --unordered-display"
     if board == "sdk":
-        cmd = "emerge {} @system sdk-depends sdk-extras".format(emerge_args)
+        cmd = f"emerge {emerge_args} @system sdk-depends sdk-extras"
     elif board == "amd64-usr":
-        cmd = "emerge-{} {} @system board-packages".format(board, emerge_args)
+        cmd = f"emerge-{board} {emerge_args} @system board-packages"
     elif board == "bootstrap":
         pkgs = exec_command_strict("/usr/lib64/catalyst/targets/stage1/build.py")
-        cmd = "emerge {} {}".format(emerge_args, pkgs)
+        cmd = f"emerge {emerge_args} {pkgs}"
     elif board == "image":
-        cmd = "emerge-amd64-usr {} --usepkgonly board-packages".format(emerge_args)
+        cmd = f"emerge-amd64-usr {emerge_args} --usepkgonly board-packages"
     else:
         raise "invalid board"
     return build_pkg_map(process_emerge_output(exec_command(cmd)))
@@ -117,7 +118,9 @@ def print_html_table(report):
 
 
 def get_date(pkg, repo_root, fmt):
-    return exec_command_strict("git -C {} --no-pager log -1 --pretty=%ad --date={} {}".format(repo_root, fmt, pkg)).strip()
+    return exec_command_strict(
+        f"git -C {repo_root} --no-pager log -1 --pretty=%ad --date={fmt} {pkg}"
+    ).strip()
 
 
 def main():
@@ -137,11 +140,8 @@ def main():
         # elif to not pull if we just cloned
         subprocess.check_call(["git", "-C", args.upstream_path, "pull"])
 
-    pkg_lists = {}
     sources = ["sdk", "bootstrap", "amd64-usr", "image"]
-    for i in sources:
-        pkg_lists[i] = get_board_packages(i)
-
+    pkg_lists = {i: get_board_packages(i) for i in sources}
     gentoo_packages = get_portage_tree_packages(args.upstream_path)
     packages = get_portage_tree_packages(args.portage_stable_path)
 

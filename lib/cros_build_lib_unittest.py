@@ -98,10 +98,9 @@ class CrosBuildLibTest(mox.MoxTestBase):
                                print_cmd=False,
                                # Test specific options
                                log_to_file=log_file)
-    log_fh = open(log_file)
-    log_data = log_fh.read()
-    self.assertEquals('Hi', log_data)
-    log_fh.close()
+    with open(log_file) as log_fh:
+      log_data = log_fh.read()
+      self.assertEquals('Hi', log_data)
     os.remove(log_file)
 
 

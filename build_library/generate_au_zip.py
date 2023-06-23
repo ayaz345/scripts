@@ -7,6 +7,7 @@
 """
   Script to generate a zip file of delta-generator and its dependencies.
 """
+
 import logging.handlers
 import optparse
 import os
@@ -20,12 +21,13 @@ REPO_MANIFESTS_DIR = os.environ['REPO_MANIFESTS_DIR']
 SCRIPTS_DIR = os.environ['SCRIPTS_DIR']
 
 # GLOBALS
-STATIC_FILES = ['%s/version.txt' % REPO_MANIFESTS_DIR,
-                '%s/common.sh' % SCRIPTS_DIR,
-                '%s/core_pre_alpha' % SCRIPTS_DIR,
-                '%s/core_roller_upload' % SCRIPTS_DIR,
-                '%s/core_sign_update' % SCRIPTS_DIR,
-                ]
+STATIC_FILES = [
+    f'{REPO_MANIFESTS_DIR}/version.txt',
+    f'{SCRIPTS_DIR}/common.sh',
+    f'{SCRIPTS_DIR}/core_pre_alpha',
+    f'{SCRIPTS_DIR}/core_roller_upload',
+    f'{SCRIPTS_DIR}/core_sign_update',
+]
 
 DYNAMIC_EXECUTABLES = ['/usr/bin/delta_generator',
                        '/usr/bin/updateservicectl',
@@ -151,7 +153,7 @@ def CopyRequiredFiles(dest_files_root):
       logging.error('file = %s does not exist', file_name)
       sys.exit(1)
 
-  logging.debug('Given files that need to be copied = %s' % '' .join(all_files))
+  logging.debug(f"Given files that need to be copied = {''.join(all_files)}")
   all_files
   for file_name in all_files:
     logging.debug('Copying file  %s to %s', file_name, dest_files_root)
@@ -291,14 +293,9 @@ def _EnforceWhiteList(library_list, white_list=[]):
 
     logging.debug('PATTERN: %s=', pattern)
 
-    found = False
-    for library in library_list:
-      if pattern.search(library):
-        found = True
-        break
-
+    found = any(pattern.search(library) for library in library_list)
     if not found:
-      logging.error('Required WHITE_LIST items %s not found!!!' % white_item)
+      logging.error(f'Required WHITE_LIST items {white_item} not found!!!')
       exit(1)
 
 
@@ -350,7 +347,7 @@ def main():
   zip_file_name = os.path.join(temp_dir, options.zip_name)
   GenerateZipFile(zip_file_name, dest_files_root)
   CopyZipToFinalDestination(options.output_dir, zip_file_name)
-  logging.info('Generated %s/%s' % (options.output_dir, options.zip_name))
+  logging.info(f'Generated {options.output_dir}/{options.zip_name}')
 
   if not options.keep_temp:
     CleanUp(temp_dir)

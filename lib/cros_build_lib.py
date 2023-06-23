@@ -148,10 +148,7 @@ def RunCommandCaptureOutput(cmd, print_cmd=True, cwd=None, input=None,
   # Set default for variables.
   stdout = subprocess.PIPE
   stderr = subprocess.PIPE
-  stdin = None
-
-  # Modify defaults based on parameters.
-  if input:  stdin = subprocess.PIPE
+  stdin = subprocess.PIPE if input else None
   if combine_stdout_stderr: stderr = subprocess.STDOUT
 
   if enter_chroot:  cmd = ['cros_sdk', '--'] + cmd

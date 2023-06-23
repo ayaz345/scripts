@@ -35,25 +35,47 @@ def LoadPartitionConfig(options):
     Object containing disk layout configuration
   """
 
-  valid_keys = set(('_comment', 'metadata', 'layouts'))
-  valid_layout_keys = set((
-      '_comment', 'type', 'num', 'label', 'blocks', 'block_size', 'fs_blocks',
-      'fs_block_size', 'fs_type', 'features', 'uuid', 'part_alignment', 'mount',
-      'binds', 'fs_subvolume', 'fs_bytes_per_inode', 'fs_inode_size', 'fs_label'))
-  integer_layout_keys = set((
-      'blocks', 'block_size', 'fs_blocks', 'fs_block_size', 'part_alignment',
-      'fs_bytes_per_inode', 'fs_inode_size'))
-  required_layout_keys = set(('type', 'num', 'label', 'blocks'))
+  valid_keys = {'_comment', 'metadata', 'layouts'}
+  valid_layout_keys = {
+      '_comment',
+      'type',
+      'num',
+      'label',
+      'blocks',
+      'block_size',
+      'fs_blocks',
+      'fs_block_size',
+      'fs_type',
+      'features',
+      'uuid',
+      'part_alignment',
+      'mount',
+      'binds',
+      'fs_subvolume',
+      'fs_bytes_per_inode',
+      'fs_inode_size',
+      'fs_label',
+  }
+  integer_layout_keys = {
+      'blocks',
+      'block_size',
+      'fs_blocks',
+      'fs_block_size',
+      'part_alignment',
+      'fs_bytes_per_inode',
+      'fs_inode_size',
+  }
+  required_layout_keys = {'type', 'num', 'label', 'blocks'}
 
   filename = options.disk_layout_file
   if not os.path.exists(filename):
-    raise ConfigNotFound('Partition config %s was not found!' % filename)
+    raise ConfigNotFound(f'Partition config {filename} was not found!')
   with open(filename) as f:
     config = json.load(f)
 
   unknown_keys = set(config.keys()) - valid_keys
   if unknown_keys:
-    raise InvalidLayout('Unknown items: %s' % ' '.join(unknown_keys))
+    raise InvalidLayout(f"Unknown items: {' '.join(unknown_keys)}")
 
   try:
     metadata = config['metadata']
@@ -62,7 +84,7 @@ def LoadPartitionConfig(options):
         'block_size', 'fs_block_size'):
       metadata[key] = int(metadata[key])
   except KeyError as e:
-    raise InvalidLayout('Metadata is missing required entries: %s' % e)
+    raise InvalidLayout(f'Metadata is missing required entries: {e}')
 
   def VerifyLayout(layout_name, layout, base=None):
     for part_num, part in layout.iteritems():
@@ -85,8 +107,9 @@ def LoadPartitionConfig(options):
 
       missing_keys = required_layout_keys - part_keys
       if missing_keys:
-        raise InvalidLayout('Missing items in partition %s %s: %s' %
-                            (layout_name, part_num, ' '.join(missing_keys)))
+        raise InvalidLayout(
+            f"Missing items in partition {layout_name} {part_num}: {' '.join(missing_keys)}"
+        )
 
       if 'uuid' in part:
         try:
@@ -317,10 +340,7 @@ def Sudo(cmd, stdout_null=False):
     stdout_null: bool to enable redirecting stdout to /dev/null.
   """
 
-  null = None
-  if stdout_null:
-    null = open('/dev/null', 'w')
-
+  null = open('/dev/null', 'w') if stdout_null else None
   try:
     subprocess.check_call(['sudo'] + [str(c) for c in cmd], stdout=null)
   finally:
@@ -339,9 +359,7 @@ def SudoOutput(cmd):
     A bytestring of the command's output
   """
 
-  output = subprocess.check_output(['sudo'] + [str(c) for c in cmd])
-
-  return output
+  return subprocess.check_output(['sudo'] + [str(c) for c in cmd])
 
 
 def BtrfsSubvolId(path):
@@ -349,11 +367,10 @@ def BtrfsSubvolId(path):
 
   out = subprocess.check_output(
           ['sudo', 'btrfs', 'subvolume', 'show', path])
-  m = re.search(r'^\s*Object ID:\s*(\d+)$', out, re.MULTILINE)
-  if not m:
+  if m := re.search(r'^\s*Object ID:\s*(\d+)$', out, re.MULTILINE):
+    return int(m[1])
+  else:
     raise Exception('Failed to parse btrfs output: %r', out)
-
-  return int(m.group(1))
 
 
 def FormatBtrfs(part, device):
@@ -370,7 +387,7 @@ def FormatBtrfs(part, device):
 
   if part.get('fs_subvolume', None):
     btrfs_mount = tempfile.mkdtemp()
-    subvol_path = '%s/%s' % (btrfs_mount, part['fs_subvolume'])
+    subvol_path = f"{btrfs_mount}/{part['fs_subvolume']}"
     Sudo(['mount', '-t', 'btrfs', device, btrfs_mount])
     try:
       Sudo(['btrfs', 'subvolume', 'create', subvol_path])
@@ -595,7 +612,7 @@ def Mount(options):
       mount_opts.append('ro')
 
     if mount.get('fs_subvolume', None):
-      mount_opts.append('subvol=%s' % mount['fs_subvolume'])
+      mount_opts.append(f"subvol={mount['fs_subvolume']}")
 
     Sudo(['mkdir', '-p', full_path])
     # This tends to fail, retry if it does
@@ -715,12 +732,11 @@ def Tune(options):
   if not part['image_compat']:
     raise InvalidLayout("Disk layout is incompatible with existing image")
 
-  if options.disable2fs_rw is not None:
-    if part.get('fs_type', None) not in ('ext2', 'ext4'):
-      raise Exception("Partition %s is not a ext2 or ext4" % options.partition)
-    Tune2fsReadWrite(options, part, options.disable2fs_rw)
-  else:
+  if options.disable2fs_rw is None:
     raise Exception("No options specified!")
+  if part.get('fs_type', None) not in ('ext2', 'ext4'):
+    raise Exception(f"Partition {options.partition} is not a ext2 or ext4")
+  Tune2fsReadWrite(options, part, options.disable2fs_rw)
 
 
 def Verity(options):
@@ -756,9 +772,9 @@ def Verity(options):
           raise Exception("Failed to parse verity output!")
 
       if options.root_hash != None:
-          with open(options.root_hash, "w") as hash_file:
-              hash_file.write(m.group(1))
-              hash_file.write("\n")
+        with open(options.root_hash, "w") as hash_file:
+          hash_file.write(m[1])
+          hash_file.write("\n")
 
 
 def Extract(options):
@@ -775,15 +791,17 @@ def Extract(options):
   if not part['image_compat']:
     raise InvalidLayout("Disk layout is incompatible with existing image")
 
-  subprocess.check_call(['dd',
-                         'bs=10MB',
-                         'iflag=count_bytes,skip_bytes',
-                         'conv=sparse',
-                         'status=none',
-                         'if=%s' % options.disk_image,
-                         'of=%s' % options.output,
-                         'skip=%s' % part['image_first_byte'],
-                         'count=%s' % part['image_bytes']])
+  subprocess.check_call([
+      'dd',
+      'bs=10MB',
+      'iflag=count_bytes,skip_bytes',
+      'conv=sparse',
+      'status=none',
+      f'if={options.disk_image}',
+      f'of={options.output}',
+      f"skip={part['image_first_byte']}",
+      f"count={part['image_bytes']}",
+  ])
 
 
 def GetPartitionByNumber(partitions, num):
